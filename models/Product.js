@@ -23,8 +23,9 @@ const productSchema = new mongoose.Schema({
     min: 0
   },
   image: {
-    type: String,
-    default: ''
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'uploads.files',
+    default: null
   }
 }, {
   timestamps: true

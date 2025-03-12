@@ -13,11 +13,20 @@ const PORT = process.env.PORT || 5000;
 // Suprimir la advertencia de strictQuery
 mongoose.set('strictQuery', false);
 
-// Middleware
-app.use(cors({
-  origin: ['http://localhost:3000', 'https://inventario-server-7k7jueem8-paradadeniljosegmailcoms-projects.vercel.app/api'], // Actualiza con tu dominio de frontend
+// Configuración de CORS más flexible
+const corsOptions = {
+  origin: [
+    'http://localhost:3000',       // Frontend local
+    'http://127.0.0.1:3000',       // Otra forma de localhost
+    /^https:\/\/.*vercel\.app$/     // Cualquier dominio de Vercel
+  ],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
   credentials: true
-}));
+};
+
+// Middleware de CORS
+app.use(cors(corsOptions));
 
 app.use(express.json());
 
@@ -27,6 +36,13 @@ app.use(express.static(path.join(__dirname, 'public')));
 // Ruta de prueba simple
 app.get('/', (req, res) => {
   res.send('API del Sistema de Inventario funcionando correctamente');
+});
+
+// Middleware de logging para depuración
+app.use((req, res, next) => {
+  console.log(`Solicitud recibida: ${req.method} ${req.path}`);
+  console.log('Origen:', req.get('origin'));
+  next();
 });
 
 // Conectar a MongoDB
@@ -42,8 +58,7 @@ mongoose.connect(process.env.MONGODB_URI, {
   // Inicializar las rutas
   app.use('/api/products', productRoutes);
   
-  // Si estás utilizando Vercel, no es necesario que el servidor escuche en un puerto
-  // Este bloque solo se ejecutará en desarrollo local
+  // Configuración para desarrollo local
   if (process.env.NODE_ENV !== 'production') {
     app.listen(PORT, () => {
       console.log(`Servidor ejecutándose en http://localhost:${PORT}`);
@@ -54,12 +69,19 @@ mongoose.connect(process.env.MONGODB_URI, {
   console.error('Error conectando a MongoDB Atlas:', err);
 });
 
-// Para desarrollo local
-if (process.env.NODE_ENV !== 'production') {
-  app.listen(PORT, () => {
-    console.log(`Servidor ejecutándose en http://localhost:${PORT}`);
+// Manejo de rutas no encontradas
+app.use((req, res, next) => {
+  res.status(404).json({ message: 'Ruta no encontrada' });
+});
+
+// Manejo de errores global
+app.use((err, req, res, next) => {
+  console.error(err.stack);
+  res.status(500).json({ 
+    message: 'Ocurrió un error en el servidor',
+    error: process.env.NODE_ENV === 'development' ? err.message : {}
   });
-}
+});
 
 // Importante para Vercel: exportar la aplicación
 module.exports = app;

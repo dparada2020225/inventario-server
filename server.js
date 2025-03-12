@@ -2,26 +2,27 @@ const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
 const dotenv = require('dotenv');
+const path = require('path');
 const productRoutes = require('./routes/productRoutes');
 
 // Configuración
 dotenv.config();
 const app = express();
-
-// Imprimir la URL de conexión (solo la primera parte para seguridad)
-const mongoUriStart = process.env.MONGODB_URI ? process.env.MONGODB_URI.substring(0, 20) + '...' : 'no definido';
-console.log('MONGODB_URI:', mongoUriStart);
-
-// Definir la URL de conexión con un fallback
-const MONGODB_URI = process.env.MONGODB_URI || 'mongodb+srv://reconstructoraantigua:bpTyzgiXREOiKoEC@cluster0.t6q15.mongodb.net/inventario?retryWrites=true&w=majority';
 const PORT = process.env.PORT || 5000;
 
 // Suprimir la advertencia de strictQuery
 mongoose.set('strictQuery', false);
 
 // Middleware
-app.use(cors());
+app.use(cors({
+  origin: ['http://localhost:3000', 'https://inventario-server-7k7jueem8-paradadeniljosegmailcoms-projects.vercel.app/api'], // Actualiza con tu dominio de frontend
+  credentials: true
+}));
+
 app.use(express.json());
+
+// Servir archivos estáticos (si los tienes)
+app.use(express.static(path.join(__dirname, 'public')));
 
 // Ruta de prueba simple
 app.get('/', (req, res) => {
@@ -30,7 +31,7 @@ app.get('/', (req, res) => {
 
 // Conectar a MongoDB
 console.log('Intentando conectar a MongoDB Atlas...');
-mongoose.connect(MONGODB_URI, {
+mongoose.connect(process.env.MONGODB_URI, {
   useNewUrlParser: true,
   useUnifiedTopology: true,
   serverSelectionTimeoutMS: 5000
@@ -41,11 +42,24 @@ mongoose.connect(MONGODB_URI, {
   // Inicializar las rutas
   app.use('/api/products', productRoutes);
   
-  // Iniciar el servidor
-  app.listen(PORT, () => {
-    console.log(`Servidor ejecutándose en http://localhost:${PORT}`);
-  });
+  // Si estás utilizando Vercel, no es necesario que el servidor escuche en un puerto
+  // Este bloque solo se ejecutará en desarrollo local
+  if (process.env.NODE_ENV !== 'production') {
+    app.listen(PORT, () => {
+      console.log(`Servidor ejecutándose en http://localhost:${PORT}`);
+    });
+  }
 })
 .catch(err => {
   console.error('Error conectando a MongoDB Atlas:', err);
 });
+
+// Para desarrollo local
+if (process.env.NODE_ENV !== 'production') {
+  app.listen(PORT, () => {
+    console.log(`Servidor ejecutándose en http://localhost:${PORT}`);
+  });
+}
+
+// Importante para Vercel: exportar la aplicación
+module.exports = app;

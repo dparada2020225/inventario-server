@@ -2,13 +2,16 @@
 const express = require('express');
 const router = express.Router();
 const productController = require('../controllers/productController');
+const { protect, admin } = require('../middleware/authMiddleware');
 
-// Rutas de productos
+// Rutas públicas (cualquiera puede ver los productos)
 router.get('/', productController.getAllProducts);
-router.post('/', productController.createProduct);
-router.get('/export-csv', productController.exportToCSV); // Ruta para exportar a CSV
 router.get('/:id', productController.getProductById);
-router.put('/:id', productController.updateProduct);
-router.delete('/:id', productController.deleteProduct);
+
+// Rutas protegidas (solo para admins)
+router.post('/', protect, productController.createProduct);
+router.put('/:id', protect, productController.updateProduct);
+router.delete('/:id', protect, productController.deleteProduct);
+router.get('/export-csv', protect, productController.exportToCSV);
 
 module.exports = router;

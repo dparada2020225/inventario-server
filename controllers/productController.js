@@ -14,6 +14,11 @@ exports.getAllProducts = async (req, res) => {
 // Crear un nuevo producto
 exports.createProduct = async (req, res) => {
   try {
+    // Verificar si es admin
+    if (req.user.role !== 'admin') {
+      return res.status(403).json({ message: 'No tienes permiso para crear productos' });
+    }
+
     const product = new Product(req.body);
     await product.save();
     res.status(201).json(product);
@@ -38,6 +43,11 @@ exports.getProductById = async (req, res) => {
 // Actualizar un producto
 exports.updateProduct = async (req, res) => {
   try {
+    // Verificar si es admin
+    if (req.user.role !== 'admin') {
+      return res.status(403).json({ message: 'No tienes permiso para actualizar productos' });
+    }
+
     const product = await Product.findByIdAndUpdate(
       req.params.id,
       req.body,
@@ -55,6 +65,11 @@ exports.updateProduct = async (req, res) => {
 // Eliminar un producto
 exports.deleteProduct = async (req, res) => {
   try {
+    // Verificar si es admin
+    if (req.user.role !== 'admin') {
+      return res.status(403).json({ message: 'No tienes permiso para eliminar productos' });
+    }
+
     const product = await Product.findByIdAndDelete(req.params.id);
     if (!product) {
       return res.status(404).json({ message: 'Producto no encontrado' });
@@ -68,6 +83,11 @@ exports.deleteProduct = async (req, res) => {
 // Exportar productos a CSV
 exports.exportToCSV = async (req, res) => {
   try {
+    // Verificar si es admin
+    if (req.user.role !== 'admin') {
+      return res.status(403).json({ message: 'No tienes permiso para exportar productos' });
+    }
+
     const products = await Product.find();
     
     // Crear el contenido CSV

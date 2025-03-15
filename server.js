@@ -8,6 +8,8 @@ const Grid = require('gridfs-stream');
 const path = require('path');
 const productRoutes = require('./routes/productRoutes');
 const authRoutes = require('./routes/authRoutes'); // Añadir esta línea
+const purchaseRoutes = require('./routes/purchaseRoutes');
+const saleRoutes = require('./routes/saleRoutes');
 
 // Configuración
 dotenv.config();
@@ -90,6 +92,8 @@ mongoose.connect(process.env.MONGODB_URI, {
     // Configurar las rutas del API después de que todo esté inicializado
     app.use('/api/auth', authRoutes); // Añadir esta línea
     app.use('/api/products', productRoutes);
+    app.use('/api/purchases', purchaseRoutes);
+    app.use('/api/sales', saleRoutes);
     
     // Ruta para listar todos los archivos en GridFS (para diagnóstico)
     app.get('/gridfs-files', async (req, res) => {

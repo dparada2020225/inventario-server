@@ -91,10 +91,10 @@ exports.exportToCSV = async (req, res) => {
     const products = await Product.find();
     
     // Crear el contenido CSV
-    let csv = 'id;nombre;categoria;color;precio;imagen\n';
+    let csv = 'id;nombre;categoria;color;stock;precioVenta;precioCompra;imagen\n';
     
     products.forEach(product => {
-      csv += `${product._id};${product.name};${product.category};${product.color};${product.price};${product.image || ''}\n`;
+      csv += `${product._id};${product.name};${product.category};${product.color};${product.stock};${product.salePrice};${product.lastPurchasePrice};${product.image || ''}\n`;
     });
     
     res.setHeader('Content-Type', 'text/csv');

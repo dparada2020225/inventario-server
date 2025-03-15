@@ -1,17 +1,15 @@
 // scripts/createAdmin.js
 const mongoose = require('mongoose');
 const User = require('../models/User');
+const { connectDB } = require('../db');
 const dotenv = require('dotenv');
 
 dotenv.config();
 
 const createAdmin = async () => {
   try {
-    // Conectar a MongoDB
-    await mongoose.connect(process.env.MONGODB_URI, {
-      useNewUrlParser: true,
-      useUnifiedTopology: true,
-    });
+    // Usar la función de conexión centralizada
+    await connectDB();
     
     console.log('Conectado a MongoDB');
     

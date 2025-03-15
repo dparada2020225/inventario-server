@@ -1,3 +1,4 @@
+// server.js
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
@@ -6,8 +7,9 @@ const multer = require('multer');
 const { GridFsStorage } = require('multer-gridfs-storage');
 const Grid = require('gridfs-stream');
 const path = require('path');
+const { connectDB } = require('./db');
 const productRoutes = require('./routes/productRoutes');
-const authRoutes = require('./routes/authRoutes'); // Añadir esta línea
+const authRoutes = require('./routes/authRoutes'); 
 const purchaseRoutes = require('./routes/purchaseRoutes');
 const saleRoutes = require('./routes/saleRoutes');
 
@@ -15,9 +17,6 @@ const saleRoutes = require('./routes/saleRoutes');
 dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 5000;
-
-// Suprimir la advertencia de strictQuery
-mongoose.set('strictQuery', false);
 
 // Middleware
 app.use(cors());
@@ -55,86 +54,82 @@ app.get('/api/test', async (req, res) => {
   }
 });
 
-// Conectar a MongoDB antes de establecer las rutas
-console.log('Intentando conectar a MongoDB Atlas...');
-mongoose.connect(process.env.MONGODB_URI, {
-  useNewUrlParser: true,
-  useUnifiedTopology: true,
-  // Aumentar el tiempo de espera para conexiones lentas
-  serverSelectionTimeoutMS: 30000,
-  // Aumentar el tiempo de espera para el socket
-  socketTimeoutMS: 45000,
-})
-.then(() => {
-  console.log('Conectado a MongoDB Atlas');
-  
-  // Inicializar GridFS primero
-  let gfs;
-  const conn = mongoose.connection;
-  
-  // Asegúrate de que la conexión esté completamente abierta
-  if (conn.readyState === 1) {
-    setupGridFS(conn);
-  } else {
-    conn.once('open', () => {
+// Inicializar aplicación
+const init = async () => {
+  try {
+    console.log('Intentando conectar a MongoDB Atlas...');
+    
+    // Conectar a MongoDB usando la función centralizada
+    await connectDB();
+    console.log('Conectado a MongoDB Atlas');
+    
+    // Inicializar GridFS
+    let gfs;
+    const conn = mongoose.connection;
+    
+    // Asegurarse de que la conexión esté completamente abierta
+    if (conn.readyState === 1) {
       setupGridFS(conn);
-    });
-  }
-  
-  function setupGridFS(connection) {
-    gfs = Grid(connection.db, mongoose.mongo);
-    gfs.collection('uploads');
-    console.log('GridFS inicializado correctamente');
+    } else {
+      conn.once('open', () => {
+        setupGridFS(conn);
+      });
+    }
     
-    // Configurar las rutas de subida de archivos DESPUÉS de que GridFS esté listo
-    setupFileUploadRoutes(connection, gfs);
-    
-    // Configurar las rutas del API después de que todo esté inicializado
-    app.use('/api/auth', authRoutes); // Añadir esta línea
-    app.use('/api/products', productRoutes);
-    app.use('/api/purchases', purchaseRoutes);
-    app.use('/api/sales', saleRoutes);
-    
-    // Ruta para listar todos los archivos en GridFS (para diagnóstico)
-    app.get('/gridfs-files', async (req, res) => {
-      try {
-        const collections = await connection.db.listCollections().toArray();
-        console.log('Colecciones en la base de datos:', collections.map(c => c.name));
-        
-        if (!collections.some(c => c.name === 'uploads.files')) {
-          return res.json({ 
-            error: 'La colección uploads.files no existe',
-            collections: collections.map(c => c.name)
+    function setupGridFS(connection) {
+      gfs = Grid(connection.db, mongoose.mongo);
+      gfs.collection('uploads');
+      console.log('GridFS inicializado correctamente');
+      
+      // Configurar las rutas de subida de archivos DESPUÉS de que GridFS esté listo
+      setupFileUploadRoutes(connection, gfs);
+      
+      // Configurar las rutas del API después de que todo esté inicializado
+      app.use('/api/auth', authRoutes); 
+      app.use('/api/products', productRoutes);
+      app.use('/api/purchases', purchaseRoutes);
+      app.use('/api/sales', saleRoutes);
+      
+      // Ruta para listar todos los archivos en GridFS (para diagnóstico)
+      app.get('/gridfs-files', async (req, res) => {
+        try {
+          const collections = await connection.db.listCollections().toArray();
+          console.log('Colecciones en la base de datos:', collections.map(c => c.name));
+          
+          if (!collections.some(c => c.name === 'uploads.files')) {
+            return res.json({ 
+              error: 'La colección uploads.files no existe',
+              collections: collections.map(c => c.name)
+            });
+          }
+          
+          const files = await connection.db.collection('uploads.files').find().toArray();
+          
+          res.json({
+            fileCount: files.length,
+            files: files.map(file => ({
+              id: file._id.toString(),
+              filename: file.filename,
+              contentType: file.contentType || file.metadata?.mimetype,
+              size: file.length,
+              uploadDate: file.uploadDate
+            }))
           });
+        } catch (error) {
+          console.error('Error al listar archivos GridFS:', error);
+          res.status(500).json({ error: 'Error al listar archivos', message: error.toString() });
         }
-        
-        const files = await connection.db.collection('uploads.files').find().toArray();
-        
-        res.json({
-          fileCount: files.length,
-          files: files.map(file => ({
-            id: file._id.toString(),
-            filename: file.filename,
-            contentType: file.contentType || file.metadata?.mimetype,
-            size: file.length,
-            uploadDate: file.uploadDate
-          }))
-        });
-      } catch (error) {
-        console.error('Error al listar archivos GridFS:', error);
-        res.status(500).json({ error: 'Error al listar archivos', message: error.toString() });
-      }
-    });
-    
-    // Iniciar el servidor solo cuando todo esté configurado
-    app.listen(PORT, () => {
-      console.log(`Servidor ejecutándose en http://localhost:${PORT}`);
-    });
+      });
+      
+      // Iniciar el servidor solo cuando todo esté configurado
+      app.listen(PORT, () => {
+        console.log(`Servidor ejecutándose en http://localhost:${PORT}`);
+      });
+    }
+  } catch (err) {
+    console.error('Error conectando a MongoDB Atlas:', err);
   }
-})
-.catch(err => {
-  console.error('Error conectando a MongoDB Atlas:', err);
-});
+};
 
 // Función para configurar las rutas de subida de archivos
 function setupFileUploadRoutes(connection, gfs) {
@@ -260,3 +255,17 @@ function setupFileUploadRoutes(connection, gfs) {
     }
   });
 }
+
+// Iniciar la aplicación
+init();
+
+// Manejar el cierre gracioso de la aplicación
+process.on('SIGINT', async () => {
+  if (mongoose.connection.readyState === 1) {
+    await mongoose.connection.close();
+    console.log('Conexión MongoDB cerrada debido a la terminación de la aplicación');
+  }
+  process.exit(0);
+});
+
+module.exports = app;

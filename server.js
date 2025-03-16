@@ -19,9 +19,17 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 
 // Middleware
-app.use(cors());
+app.use(cors({
+  origin: '*', // Permitir todas las conexiones
+  methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
+  credentials: true,
+  preflightContinue: false,
+  optionsSuccessStatus: 204,
+  allowedHeaders: ['Content-Type', 'Authorization']
+}));
 app.use(express.json());
 
+app.options('*', cors());
 // Ruta de prueba simple
 app.get('/', (req, res) => {
   res.send('API del Sistema de Inventario funcionando correctamente');
@@ -52,6 +60,15 @@ app.get('/api/test', async (req, res) => {
       error: error.message
     });
   }
+});
+
+// Añadir esto a tu server.js antes de las rutas de API
+app.get('/api/test', (req, res) => {
+  res.json({ 
+    message: 'API is working!', 
+    environment: process.env.NODE_ENV,
+    timestamp: new Date().toISOString()
+  });
 });
 
 // Inicializar aplicación

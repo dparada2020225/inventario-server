@@ -95,11 +95,12 @@ exports.login = async (req, res) => {
     });
     
   } catch (error) {
+    console.error('Error en login:', error);
     res.status(500).json({ message: 'Error en login', error: error.message });
   }
 };
 
-// Obtener todos los usuarios (solo para admin) - con implementación de caché
+// Obtener todos los usuarios (solo para admin) - con implementación de caché optimizada
 exports.getAllUsers = async (req, res) => {
   try {
     // Verificar permisos
@@ -107,10 +108,15 @@ exports.getAllUsers = async (req, res) => {
       return res.status(403).json({ message: 'Acceso denegado' });
     }
     
+    // Forzar actualización si se proporciona un parámetro específico
+    const forceRefresh = req.query.forceRefresh === 'true';
+    
     // Verificar si tenemos datos en caché válidos
     const now = Date.now();
-    if (usersCache.data && (now - usersCache.timestamp < usersCache.expiryTime)) {
+    if (!forceRefresh && usersCache.data && (now - usersCache.timestamp < usersCache.expiryTime)) {
       console.log('Retornando usuarios desde caché');
+      // Añadir encabezados para indicar que se está usando caché
+      res.setHeader('X-Cache', 'HIT');
       return res.status(200).json(usersCache.data);
     }
     
@@ -123,6 +129,8 @@ exports.getAllUsers = async (req, res) => {
     usersCache.data = users;
     usersCache.timestamp = now;
     
+    // Indicar que los datos son frescos
+    res.setHeader('X-Cache', 'MISS');
     res.status(200).json(users);
   } catch (error) {
     console.error('Error en getAllUsers:', error);

@@ -59,13 +59,13 @@ exports.createPurchase = async (req, res) => {
       await product.save({ session });
     }
 
-    // Crear registro de compra
+    // Crear registro de compra con el usuario actual
     const purchase = new Purchase({
       date: new Date(),
       supplier,
       items: purchaseItems,
       totalAmount,
-      user: req.user.id
+      user: req.user.id // Usar el ID del usuario que está haciendo la compra
     });
 
     await purchase.save({ session });
@@ -80,7 +80,7 @@ exports.createPurchase = async (req, res) => {
   }
 };
 
-// Obtener todas las compras
+// Obtener todas las compras (con filtro de fecha opcional)
 exports.getAllPurchases = async (req, res) => {
   try {
     // Verificar si es admin
@@ -88,9 +88,34 @@ exports.getAllPurchases = async (req, res) => {
       return res.status(403).json({ message: 'No tienes permiso para ver las compras' });
     }
 
-    const purchases = await Purchase.find()
+    // Filtros para la consulta
+    const filter = {};
+    
+    // Filtrar por fecha si se proporcionan startDate y endDate
+    if (req.query.startDate && req.query.endDate) {
+      const startDate = new Date(req.query.startDate);
+      const endDate = new Date(req.query.endDate);
+      
+      // Ajustar endDate para incluir todo el día
+      endDate.setHours(23, 59, 59, 999);
+      
+      // Verificar que las fechas sean válidas
+      if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
+        return res.status(400).json({ message: 'Formato de fecha inválido' });
+      }
+      
+      filter.date = {
+        $gte: startDate,
+        $lte: endDate
+      };
+      
+      console.log(`Filtrando compras desde ${startDate.toISOString()} hasta ${endDate.toISOString()}`);
+    }
+
+    const purchases = await Purchase.find(filter)
       .populate('user', 'username')
-      .populate('items.product', 'name');
+      .populate('items.product', 'name')
+      .sort({ date: -1 }); // Ordenar por fecha, más reciente primero
     
     res.status(200).json(purchases);
   } catch (error) {

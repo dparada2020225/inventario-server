@@ -79,28 +79,3 @@ exports.deleteProduct = async (req, res) => {
     res.status(500).json({ message: 'Error al eliminar producto', error: error.message });
   }
 };
-
-// Exportar productos a CSV
-exports.exportToCSV = async (req, res) => {
-  try {
-    // Verificar si es admin
-    if (req.user.role !== 'admin') {
-      return res.status(403).json({ message: 'No tienes permiso para exportar productos' });
-    }
-
-    const products = await Product.find();
-    
-    // Crear el contenido CSV
-    let csv = 'id;nombre;categoria;color;stock;precioVenta;precioCompra;imagen\n';
-    
-    products.forEach(product => {
-      csv += `${product._id};${product.name};${product.category};${product.color};${product.stock};${product.salePrice};${product.lastPurchasePrice};${product.image || ''}\n`;
-    });
-    
-    res.setHeader('Content-Type', 'text/csv');
-    res.setHeader('Content-Disposition', 'attachment; filename=productos.csv');
-    res.status(200).send(csv);
-  } catch (error) {
-    res.status(500).json({ message: 'Error al exportar a CSV', error: error.message });
-  }
-};

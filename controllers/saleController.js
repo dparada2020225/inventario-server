@@ -68,13 +68,13 @@ exports.createSale = async (req, res) => {
       await product.save({ session });
     }
 
-    // Crear registro de venta
+    // Crear registro de venta con el usuario actual
     const sale = new Sale({
       date: new Date(),
       customer,
       items: saleItems,
       totalAmount,
-      user: req.user.id
+      user: req.user.id // Usar el ID del usuario que está haciendo la venta
     });
 
     await sale.save({ session });
@@ -89,7 +89,7 @@ exports.createSale = async (req, res) => {
   }
 };
 
-// Obtener todas las ventas
+// Obtener todas las ventas (con filtro de fecha opcional)
 exports.getAllSales = async (req, res) => {
   try {
     // Verificar si es admin
@@ -97,9 +97,34 @@ exports.getAllSales = async (req, res) => {
       return res.status(403).json({ message: 'No tienes permiso para ver las ventas' });
     }
 
-    const sales = await Sale.find()
-      .populate('user', 'username')
-      .populate('items.product', 'name');
+    // Filtros para la consulta
+    const filter = {};
+    
+    // Filtrar por fecha si se proporcionan startDate y endDate
+    if (req.query.startDate && req.query.endDate) {
+      const startDate = new Date(req.query.startDate);
+      const endDate = new Date(req.query.endDate);
+      
+      // Ajustar endDate para incluir todo el día
+      endDate.setHours(23, 59, 59, 999);
+      
+      // Verificar que las fechas sean válidas
+      if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
+        return res.status(400).json({ message: 'Formato de fecha inválido' });
+      }
+      
+      filter.date = {
+        $gte: startDate,
+        $lte: endDate
+      };
+      
+      console.log(`Filtrando ventas desde ${startDate.toISOString()} hasta ${endDate.toISOString()}`);
+    }
+
+    const sales = await Sale.find(filter)
+      .populate('user', 'username') // Poblar el campo user con el nombre de usuario
+      .populate('items.product', 'name')
+      .sort({ date: -1 }); // Ordenar por fecha, más reciente primero
     
     res.status(200).json(sales);
   } catch (error) {

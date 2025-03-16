@@ -2,6 +2,13 @@
 const User = require('../models/User');
 const jwt = require('jsonwebtoken');
 
+// Cache para usuarios (almacena resultados por un corto período)
+let usersCache = {
+  data: null,
+  timestamp: 0,
+  expiryTime: 60000 // 60 segundos de caché
+};
+
 // Generar token JWT
 const generateToken = (user) => {
   return jwt.sign(
@@ -46,6 +53,9 @@ exports.register = async (req, res) => {
       role: newUser.role
     };
     
+    // Invalidar caché después de crear un nuevo usuario
+    usersCache.data = null;
+    
     res.status(201).json({ message: 'Usuario creado exitosamente', user: userResponse });
     
   } catch (error) {
@@ -89,16 +99,33 @@ exports.login = async (req, res) => {
   }
 };
 
-// Obtener todos los usuarios (solo para admin)
+// Obtener todos los usuarios (solo para admin) - con implementación de caché
 exports.getAllUsers = async (req, res) => {
   try {
+    // Verificar permisos
     if (req.user.role !== 'admin') {
       return res.status(403).json({ message: 'Acceso denegado' });
     }
     
-    const users = await User.find().select('-password');
+    // Verificar si tenemos datos en caché válidos
+    const now = Date.now();
+    if (usersCache.data && (now - usersCache.timestamp < usersCache.expiryTime)) {
+      console.log('Retornando usuarios desde caché');
+      return res.status(200).json(usersCache.data);
+    }
+    
+    console.log('Consultando usuarios desde base de datos');
+    
+    // Si no hay caché o expiró, consultar la base de datos
+    const users = await User.find().select('-password').lean();
+    
+    // Actualizar caché
+    usersCache.data = users;
+    usersCache.timestamp = now;
+    
     res.status(200).json(users);
   } catch (error) {
+    console.error('Error en getAllUsers:', error);
     res.status(500).json({ message: 'Error al obtener usuarios', error: error.message });
   }
 };

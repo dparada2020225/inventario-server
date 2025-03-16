@@ -2,6 +2,10 @@
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 
+// Cache para usuarios autenticados (reduce consultas a BD)
+const userCache = new Map();
+const CACHE_TTL = 5 * 60 * 1000; // 5 minutos
+
 exports.protect = async (req, res, next) => {
   try {
     let token;
@@ -18,11 +22,32 @@ exports.protect = async (req, res, next) => {
     // Verificar token
     const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your_jwt_secret_key');
     
-    // Obtener usuario del token
+    // Comprobar si tenemos el usuario en caché
+    const cacheKey = decoded.id;
+    const cachedUser = userCache.get(cacheKey);
+    const now = Date.now();
+    
+    if (cachedUser && now - cachedUser.timestamp < CACHE_TTL) {
+      // Usar usuario desde caché
+      req.user = {
+        id: cachedUser.user._id,
+        username: cachedUser.user.username,
+        role: cachedUser.user.role
+      };
+      return next();
+    }
+    
+    // Si no está en caché o expiró, consultar BD
     const user = await User.findById(decoded.id).select('-password');
     if (!user) {
       return res.status(401).json({ message: 'Token no válido o usuario no existe' });
     }
+    
+    // Actualizar caché
+    userCache.set(cacheKey, {
+      user,
+      timestamp: now
+    });
     
     // Añadir usuario al request
     req.user = {
